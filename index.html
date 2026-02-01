@@ -1,157 +1,97 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Orbital Gate - Final Fix</title>
+    <title>Bouncing Ball Game</title>
     <style>
-        body { 
-            margin: 0; background: #0a0a0a; color: white; 
-            display: flex; flex-direction: column; align-items: center; 
-            justify-content: center; height: 100vh; overflow: hidden; 
-            font-family: sans-serif; touch-action: none;
-        }
-        #ui { position: absolute; top: 20px; text-align: center; pointer-events: none; }
-        #scoreDisplay { font-size: 3rem; margin: 0; color: #00f2ff; }
-        canvas { 
-            border: 2px solid #333; background: #000; 
-            max-width: 95vw; max-height: 95vw; 
-        }
+        body { margin: 0; background: #222; display: flex; justify-content: center; align-items: center; height: 100vh; color: white; font-family: sans-serif; overflow: hidden; }
+        canvas { border: 4px solid #fff; background: #000; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
 
-    <div id="ui">
-        <h1 id="scoreDisplay">0</h1>
-    </div>
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
 
-    <canvas id="gameCanvas"></canvas>
+    // Game Objects
+    const paddle = { width: 100, height: 10, x: 350, y: 580, speed: 8 };
+    const ball = { x: 400, y: 300, radius: 8, dx: 4, dy: -4 };
+    let score = 0;
+    let gameOver = false;
 
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const scoreDisplay = document.getElementById('scoreDisplay');
+    // Control Handling
+    let rightPressed = false;
+    let leftPressed = false;
 
-        canvas.width = 400;
-        canvas.height = 400;
+    document.addEventListener("keydown", (e) => {
+        if(e.key === "Right" || e.key === "ArrowRight") rightPressed = true;
+        if(e.key === "Left" || e.key === "ArrowLeft") leftPressed = true;
+    });
+    document.addEventListener("keyup", (e) => {
+        if(e.key === "Right" || e.key === "ArrowRight") rightPressed = false;
+        if(e.key === "Left" || e.key === "ArrowLeft") leftPressed = false;
+    });
 
-        let score = 0;
-        let gameActive = false;
-        let mouseAngle = 0;
-
-        const ball = {
-            x: 200, y: 200, radius: 6,
-            speed: 1.75, 
-            dx: 0, dy: 0
-        };
-
-        const gate = {
-            radius: 85,
-            gapSize: 1.45, // 10% shorter red line
-            thickness: 8
-        };
-
-        // This handles both mouse and finger touch accurately
-        function inputHandler(e) {
-            const rect = canvas.getBoundingClientRect();
-            const x = (e.clientX || e.touches?.[0].clientX) - rect.left;
-            const y = (e.clientY || e.touches?.[0].clientY) - rect.top;
-            
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            
-            mouseAngle = Math.atan2(y - centerY, x - centerX);
-
-            // Start game on first click/touch
-            if (!gameActive) {
-                resetGame();
-            }
+    function draw() {
+        if(gameOver) {
+            ctx.fillStyle = "white";
+            ctx.font = "30px Arial";
+            ctx.fillText("GAME OVER - Press F5 to Restart", 180, 300);
+            return;
         }
 
-        window.addEventListener('mousemove', inputHandler);
-        window.addEventListener('mousedown', inputHandler);
-        window.addEventListener('touchstart', inputHandler, { passive: false });
-        window.addEventListener('touchmove', (e) => { e.preventDefault(); inputHandler(e); }, { passive: false });
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        function resetGame() {
-            score = 0;
-            scoreDisplay.innerText = "0";
-            ball.x = 200;
-            ball.y = 200;
-            ball.speed = 1.75;
-            
-            const angle = Math.random() * Math.PI * 2;
-            ball.dx = Math.cos(angle) * ball.speed;
-            ball.dy = Math.sin(angle) * ball.speed;
-            
-            gameActive = true;
+        // Draw Paddle
+        ctx.fillStyle = "#00FF00";
+        ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+
+        // Draw Ball
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2);
+        ctx.fillStyle = "#FF0000";
+        ctx.fill();
+        ctx.closePath();
+
+        // Draw Score
+        ctx.fillStyle = "white";
+        ctx.font = "16px Arial";
+        ctx.fillText("Score: " + score, 10, 20);
+
+        // Wall Collision (Left/Right)
+        if(ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
+            ball.dx = -ball.dx;
         }
-
-        function mainLoop() {
-            // 1. CLEAR & DRAW BACKGROUND
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 2. DRAW RED GATE
-            ctx.beginPath();
-            ctx.strokeStyle = '#ff0055';
-            ctx.lineWidth = gate.thickness;
-            ctx.lineCap = 'round';
-            ctx.arc(200, 200, gate.radius, mouseAngle + gate.gapSize/2, mouseAngle - gate.gapSize/2);
-            ctx.stroke();
-
-            if (gameActive) {
-                // 3. UPDATE BALL PHYSICS
-                ball.x += ball.dx;
-                ball.y += ball.dy;
-
-                // Wall Bounce
-                if (ball.x <= ball.radius || ball.x >= canvas.width - ball.radius) ball.dx *= -1;
-                if (ball.y <= ball.radius || ball.y >= canvas.height - ball.radius) ball.dy *= -1;
-
-                // Ring Collision
-                const dist = Math.sqrt((ball.x - 200)**2 + (ball.y - 200)**2);
-                
-                // If the ball is exactly at the ring's distance
-                if (Math.abs(dist - gate.radius) < (ball.radius + 2)) {
-                    const ballAngle = Math.atan2(ball.y - 200, ball.x - 200);
-                    let diff = Math.abs(ballAngle - mouseAngle);
-                    if (diff > Math.PI) diff = 2 * Math.PI - diff;
-
-                    if (diff > gate.gapSize / 2) {
-                        // HIT RED LINE
-                        gameActive = false;
-                    } else if (ball.lastDist && Math.sign(dist - gate.radius) !== Math.sign(ball.lastDist - gate.radius)) {
-                        // CROSSED THROUGH GAP
-                        score++;
-                        scoreDisplay.innerText = score;
-                        ball.speed += 0.1;
-                        // Update velocity to reflect new speed
-                        const currentAngle = Math.atan2(ball.dy, ball.dx);
-                        ball.dx = Math.cos(currentAngle) * ball.speed;
-                        ball.dy = Math.sin(currentAngle) * ball.speed;
-                    }
-                }
-                ball.lastDist = dist;
+        // Wall Collision (Top)
+        if(ball.y + ball.dy < ball.radius) {
+            ball.dy = -ball.dy;
+        } 
+        // Bottom Collision (The "Goal")
+        else if(ball.y + ball.dy > canvas.height - ball.radius) {
+            // Check if it hits the paddle
+            if(ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
+                ball.dy = -ball.dy;
+                score++;
+                // Slight speed increase to make it harder
+                ball.dx *= 1.05;
+                ball.dy *= 1.05;
             } else {
-                // 4. DRAW START MESSAGE
-                ctx.fillStyle = "white";
-                ctx.textAlign = "center";
-                ctx.font = "20px Arial";
-                ctx.fillText(score === 0 ? "TAP TO START" : "GAME OVER - TAP TO RESET", 200, 200);
+                gameOver = true;
             }
-
-            // 5. DRAW BALL
-            ctx.beginPath();
-            ctx.fillStyle = '#00f2ff';
-            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-            ctx.fill();
-
-            requestAnimationFrame(mainLoop);
         }
 
-        // START THE LOOP IMMEDIATELY
-        mainLoop();
-    </script>
+        // Paddle Movement
+        if(rightPressed && paddle.x < canvas.width - paddle.width) paddle.x += paddle.speed;
+        if(leftPressed && paddle.x > 0) paddle.x -= paddle.speed;
+
+        ball.x += ball.dx;
+        ball.y += ball.dy;
+
+        requestAnimationFrame(draw);
+    }
+
+    draw();
+</script>
 </body>
 </html>
