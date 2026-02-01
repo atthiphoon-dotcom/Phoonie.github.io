@@ -91,9 +91,9 @@
 
         function startGame() {
             score = 0;
-            ball.speed = 3.5;
-            ball.x = 200;
-            ball.y = 200;
+            ball.speed = 1.75;
+            ball.x = 0;
+            ball.y = 0;
             const randomAngle = Math.random() * Math.PI * 2;
             ball.dx = Math.cos(randomAngle) * ball.speed;
             ball.dy = Math.sin(randomAngle) * ball.speed;
