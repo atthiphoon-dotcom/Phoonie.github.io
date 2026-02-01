@@ -1,27 +1,37 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Orbital Gate - Slow Center</title>
+    <title>Orbital Gate - Zen Edition</title>
     <style>
         body { 
-            margin: 0; background: #0a0a0a; color: white; 
+            margin: 0; background: #050505; color: white; 
             display: flex; flex-direction: column; align-items: center; 
             justify-content: center; height: 100vh; overflow: hidden; 
-            font-family: sans-serif; touch-action: none;
+            font-family: 'Segoe UI', Roboto, sans-serif; touch-action: none;
         }
         canvas { 
-            border: 3px solid #333; background: #000; 
-            box-shadow: 0 0 20px rgba(0,242,255,0.2);
-            max-width: 90vw; max-height: 90vw;
+            border: 2px solid #222; background: #000; 
+            box-shadow: 0 0 30px rgba(0, 242, 255, 0.15);
+            max-width: 90vw; max-height: 90vw; border-radius: 4px;
         }
-        #scoreDisplay { font-size: 2.5rem; margin: 10px; color: #00f2ff; }
+        .ui-container { text-align: center; margin-bottom: 15px; }
+        #scoreDisplay { 
+            font-size: 3rem; margin: 0; font-weight: 200;
+            color: #00f2ff; text-shadow: 0 0 15px rgba(0, 242, 255, 0.5); 
+        }
+        .instructions { color: #555; font-size: 0.9rem; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
-    <h1 id="scoreDisplay">SCORE: 0</h1>
+    <div class="ui-container">
+        <h1 id="scoreDisplay">0</h1>
+        <div class="instructions">ALIGN THE GAP TO PASS</div>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
 
     <script>
@@ -45,40 +55,41 @@
 
         const gate = {
             radius: 85,
-            gapSize: 1.45, // 10% wider gap (makes red line shorter)
+            gapSize: 1.45, // Widened gap = 10% shorter red line
             thickness: 8,
             lastPassed: false
         };
 
-        function updateMousePos(e) {
+        // Input tracking
+        function updateInput(e) {
             const rect = canvas.getBoundingClientRect();
             const clientX = (e.touches ? e.touches[0].clientX : e.clientX);
             const clientY = (e.touches ? e.touches[0].clientY : e.clientY);
             const centerX = rect.left + canvas.width / 2;
             const centerY = rect.top + canvas.height / 2;
             mouseAngle = Math.atan2(clientY - centerY, clientX - centerX);
+
+            if (!gameActive && (e.type === 'mousedown' || e.type === 'touchstart')) {
+                startGame();
+            }
         }
 
-        function handleStart() {
-            if (!gameActive) startGame();
-        }
-
-        window.addEventListener('mousemove', updateMousePos);
-        window.addEventListener('touchmove', updateMousePos, { passive: false });
-        window.addEventListener('mousedown', handleStart);
-        window.addEventListener('touchstart', handleStart);
+        window.addEventListener('mousemove', updateInput);
+        window.addEventListener('touchmove', (e) => { e.preventDefault(); updateInput(e); }, { passive: false });
+        window.addEventListener('mousedown', updateInput);
+        window.addEventListener('touchstart', updateInput);
 
         function startGame() {
             score = 0;
-            scoreDisplay.innerText = "SCORE: 0";
+            scoreDisplay.innerText = "0";
             ball.speed = 1.75;
             ball.x = 200;
             ball.y = 200;
 
-            // Random direction from center
-            const randomAngle = Math.random() * Math.PI * 2;
-            ball.dx = Math.cos(randomAngle) * ball.speed;
-            ball.dy = Math.sin(randomAngle) * ball.speed;
+            // Launch in a random direction
+            const angle = Math.random() * Math.PI * 2;
+            ball.dx = Math.cos(angle) * ball.speed;
+            ball.dy = Math.sin(angle) * ball.speed;
 
             gameActive = true;
         }
@@ -89,14 +100,13 @@
             ball.x += ball.dx;
             ball.y += ball.dy;
 
-            // Wall Bouncing
+            // Wall Bouncing logic
             if (ball.x <= ball.radius || ball.x >= canvas.width - ball.radius) ball.dx *= -1;
             if (ball.y <= ball.radius || ball.y >= canvas.height - ball.radius) ball.dy *= -1;
 
-            // Gate Collision
+            // Collision check with the Ring
             const dist = Math.sqrt((ball.x - 200)**2 + (ball.y - 200)**2);
             
-            // Only check collision if ball is near the ring radius
             if (Math.abs(dist - gate.radius) < ball.radius) {
                 if (!gate.lastPassed) {
                     const ballAngle = Math.atan2(ball.y - 200, ball.x - 200);
@@ -104,54 +114,55 @@
                     if (diff > Math.PI) diff = 2 * Math.PI - diff;
 
                     if (diff > gate.gapSize / 2) {
-                        gameActive = false; // Hit the red line
+                        gameActive = false; // Collided with red hazard
                     } else {
                         score++;
-                        scoreDisplay.innerText = "SCORE: " + score;
-                        ball.speed += 0.1; // Speed up slightly each pass
+                        scoreDisplay.innerText = score;
+                        ball.speed += 0.1; // Minimal speed ramp-up
                         gate.lastPassed = true;
                     }
                 }
             } else {
-                // Allows the ball to "pass" and reset collision state
                 gate.lastPassed = false;
             }
         }
 
         function draw() {
-            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            // Subtle trail effect
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw Red Gate
+            // Draw the Rotating Red Hazard
             ctx.beginPath();
             ctx.strokeStyle = '#ff0055';
             ctx.lineWidth = gate.thickness;
             ctx.lineCap = 'round';
-            // The arc is the "hazard" - the gap is where mouseAngle is
+            // The arc represents the danger zone; the empty space is your safety gap
             ctx.arc(200, 200, gate.radius, mouseAngle + gate.gapSize/2, mouseAngle - gate.gapSize/2);
             ctx.stroke();
 
-            // Draw Ball
+            // Draw the Player Ball
             ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
             ctx.fillStyle = ball.color;
             ctx.shadowBlur = 15;
             ctx.shadowColor = ball.color;
-            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
             ctx.fill();
-            ctx.shadowBlur = 0;
+            ctx.shadowBlur = 0; // Reset blur for other elements
 
             if (!gameActive) {
                 ctx.fillStyle = "white";
                 ctx.textAlign = "center";
-                ctx.font = "20px Arial";
-                ctx.fillText(score === 0 ? "CLICK TO START" : "GAME OVER - CLICK TO RESTART", 200, 200);
+                ctx.font = "18px 'Segoe UI'";
+                ctx.fillText(score === 0 ? "CLICK TO START" : "GAME OVER - CLICK TO TRY AGAIN", 200, 200);
             }
 
             update();
             requestAnimationFrame(draw);
         }
 
+        // Start the rendering loop
         draw();
     </script>
 </body>
-</html>   
+</html>
