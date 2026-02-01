@@ -1,89 +1,152 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Bouncing Ball Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobile Bounce</title>
     <style>
-        body { margin: 0; background: #222; display: flex; justify-content: center; align-items: center; height: 100vh; color: white; font-family: sans-serif; overflow: hidden; }
-        canvas { border: 4px solid #fff; background: #000; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        body { 
+            margin: 0; 
+            background: #111; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            justify-content: center;
+            height: 100vh; 
+            color: white; 
+            font-family: sans-serif; 
+            overflow: hidden; 
+            touch-action: none; /* Prevents scrolling while playing */
+        }
+        canvas { 
+            background: #000; 
+            border: 2px solid #444;
+            max-width: 95vw;
+            max-height: 70vh;
+            touch-action: none;
+        }
+        .instructions { margin-top: 10px; color: #888; font-size: 0.9em; }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="scoreBoard">Score: 0</div>
+    <canvas id="gameCanvas"></canvas>
+    <div class="instructions">Drag to move the paddle</div>
 
 <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
+    const scoreElement = document.getElementById("scoreBoard");
 
-    // Game Objects
-    const paddle = { width: 100, height: 10, x: 350, y: 580, speed: 8 };
-    const ball = { x: 400, y: 300, radius: 8, dx: 4, dy: -4 };
+    // Set canvas size
+    canvas.width = 400;
+    canvas.height = 500;
+
     let score = 0;
     let gameOver = false;
 
-    // Control Handling
-    let rightPressed = false;
-    let leftPressed = false;
+    const paddle = {
+        width: 80,
+        height: 15,
+        x: 160,
+        y: 470,
+        color: "#00d2ff"
+    };
 
-    document.addEventListener("keydown", (e) => {
-        if(e.key === "Right" || e.key === "ArrowRight") rightPressed = true;
-        if(e.key === "Left" || e.key === "ArrowLeft") leftPressed = true;
+    const ball = {
+        x: 200,
+        y: 250,
+        radius: 10,
+        dx: 3,
+        dy: 3,
+        color: "#ff0055"
+    };
+
+    // --- TOUCH & MOUSE CONTROLS ---
+    function handleMove(e) {
+        e.preventDefault();
+        let clientX;
+        if (e.touches) {
+            clientX = e.touches[0].clientX;
+        } else {
+            clientX = e.clientX;
+        }
+
+        // Calculate position relative to canvas scale
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const mouseX = (clientX - rect.left) * scaleX;
+        
+        // Center paddle on finger/mouse
+        paddle.x = mouseX - paddle.width / 2;
+
+        // Keep paddle inside walls
+        if (paddle.x < 0) paddle.x = 0;
+        if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+    }
+
+    canvas.addEventListener("touchmove", handleMove, {passive: false});
+    canvas.addEventListener("mousemove", handleMove);
+    canvas.addEventListener("touchstart", (e) => {
+        if(gameOver) resetGame();
     });
-    document.addEventListener("keyup", (e) => {
-        if(e.key === "Right" || e.key === "ArrowRight") rightPressed = false;
-        if(e.key === "Left" || e.key === "ArrowLeft") leftPressed = false;
-    });
+
+    function resetGame() {
+        score = 0;
+        ball.x = 200;
+        ball.y = 250;
+        ball.dx = 3;
+        ball.dy = 3;
+        gameOver = false;
+        draw();
+    }
 
     function draw() {
         if(gameOver) {
+            ctx.fillStyle = "rgba(0,0,0,0.7)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "white";
-            ctx.font = "30px Arial";
-            ctx.fillText("GAME OVER - Press F5 to Restart", 180, 300);
+            ctx.textAlign = "center";
+            ctx.font = "24px Arial";
+            ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2);
+            ctx.font = "16px Arial";
+            ctx.fillText("Tap to Restart", canvas.width/2, canvas.height/2 + 40);
             return;
         }
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Draw Paddle
-        ctx.fillStyle = "#00FF00";
+        // Paddle
+        ctx.fillStyle = paddle.color;
         ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
 
-        // Draw Ball
+        // Ball
         ctx.beginPath();
         ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2);
-        ctx.fillStyle = "#FF0000";
+        ctx.fillStyle = ball.color;
         ctx.fill();
         ctx.closePath();
 
-        // Draw Score
-        ctx.fillStyle = "white";
-        ctx.font = "16px Arial";
-        ctx.fillText("Score: " + score, 10, 20);
-
-        // Wall Collision (Left/Right)
+        // Wall Bouncing
         if(ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
             ball.dx = -ball.dx;
         }
-        // Wall Collision (Top)
         if(ball.y + ball.dy < ball.radius) {
             ball.dy = -ball.dy;
         } 
-        // Bottom Collision (The "Goal")
-        else if(ball.y + ball.dy > canvas.height - ball.radius) {
-            // Check if it hits the paddle
+        
+        // Paddle Collision
+        if(ball.y + ball.dy > paddle.y - ball.radius) {
             if(ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
-                ball.dy = -ball.dy;
+                ball.dy = -Math.abs(ball.dy); // Force upward bounce
                 score++;
-                // Slight speed increase to make it harder
+                scoreElement.innerText = "Score: " + score;
+                // Gradually speed up
                 ball.dx *= 1.05;
                 ball.dy *= 1.05;
-            } else {
+            } else if (ball.y > canvas.height) {
                 gameOver = true;
             }
         }
-
-        // Paddle Movement
-        if(rightPressed && paddle.x < canvas.width - paddle.width) paddle.x += paddle.speed;
-        if(leftPressed && paddle.x > 0) paddle.x -= paddle.speed;
 
         ball.x += ball.dx;
         ball.y += ball.dy;
