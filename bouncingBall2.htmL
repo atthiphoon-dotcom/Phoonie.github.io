@@ -1,1 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>2 Player Pong</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body {
+    margin: 0;
+    background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    touch-action: none;
+  }
+
+  canvas {
+    background: black;
+    border: 3px solid white;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth * 0.95;
+  canvas.height = window.innerHeight * 0.75;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+// Ball
+let ball = {
+  x: canvas.width / 2,
+  y: canvas.height / 2,
+  radius: 8,
+  dx: 3,
+  dy: 3
+};
+
+// Paddles
+let paddleWidth = 100;
+let paddleHeight = 12;
+let speed = 6;
+
+let player1 = {
+  x: canvas.width / 2 - paddleWidth / 2,
+  y: canvas.height - 30,
+  width: paddleWidth,
+  height: paddleHeight
+};
+
+let player2 = {
+  x: canvas.width / 2 - paddleWidth / 2,
+  y: 20,
+  width: paddleWidth,
+  height: paddleHeight
+};
+
+let score1 = 0;
+let score2 = 0;
+
+// Keyboard control
+let keys = {};
+
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
+
+// Mobile touch control
+canvas.addEventListener("touchmove", function(e) {
+  e.preventDefault();
+  let rect = canvas.getBoundingClientRect();
+  for (let touch of e.touches) {
+    let x = touch.clientX - rect.left;
+
+    if (x < canvas.width / 2) {
+      player1.x = x - player1.width / 2;
+    } else {
+      player2.x = x - player2.width / 2;
+    }
+  }
+});
+
+// Draw paddle
+function drawPaddle(p) {
+  ctx.fillStyle = "white";
+  ctx.fillRect(p.x, p.y, p.width, p.height);
+}
+
+// Draw ball
+function drawBall() {
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+  ctx.fillStyle = "white";
+  ctx.fill();
+  ctx.closePath();
+}
+
+// Draw score
+function drawScore() {
+  ctx.font = "18px Arial";
+  ctx.fillStyle = "white";
+  ctx.fillText("Top: " + score2, 10, 25);
+  ctx.fillText("Bottom: " + score1, 10, canvas.height - 10);
+}
+
+// Reset ball
+function resetBall() {
+  ball.x = canvas.width / 2;
+  ball.y = canvas.height / 2;
+  ball.dx = 3 * (Math.random() > 0.5 ? 1 : -1);
+  ball.dy = 3 * (Math.random() > 0.5 ? 1 : -1);
+}
+
+// Game loop
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Move Player 1 (A, D)
+  if (keys["a"] || keys["A"]) player1.x -= speed;
+  if (keys["d"] || keys["D"]) player1.x += speed;
+
+  // Move Player 2 (Arrow keys)
+  if (keys["ArrowLeft"]) player2.x -= speed;
+  if (keys["ArrowRight"]) player2.x += speed;
+
+  // Keep paddles inside screen
+  player1.x = Math.max(0, Math.min(canvas.width - player1.width, player1.x));
+  player2.x = Math.max(0, Math.min(canvas.width - player2.width, player2.x));
+
+  // Move ball
+  ball.x += ball.dx;
+  ball.y += ball.dy;
+
+  // Wall bounce
+  if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) {
+    ball.dx *= -1;
+  }
+
+  // Bottom paddle collision
+  if (
+    ball.y + ball.radius > player1.y &&
+    ball.x > player1.x &&
+    ball.x < player1.x + player1.width
+  ) {
+    ball.dy *= -1;
+  }
+
+  // Top paddle collision
+  if (
+    ball.y - ball.radius < player2.y + player2.height &&
+    ball.x > player2.x &&
+    ball.x < player2.x + player2.width
+  ) {
+    ball.dy *= -1;
+  }
+
+  // Score
+  if (ball.y > canvas.height) {
+    score2++;
+    resetBall();
+  }
+
+  if (ball.y < 0) {
+    score1++;
+    resetBall();
+  }
+
+  drawBall();
+  drawPaddle(player1);
+  drawPaddle(player2);
+  drawScore();
+
+  requestAnimationFrame(update);
+}
+
+update();
+</script>
+
+</body>
+</html>
 
