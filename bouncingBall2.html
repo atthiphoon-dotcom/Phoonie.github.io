@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>2 Player Pong</title>
+<title>2 Player Advanced Pong</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   body {
@@ -41,49 +41,51 @@ let ball = {
   x: canvas.width / 2,
   y: canvas.height / 2,
   radius: 8,
-  dx: 3,
-  dy: 3
+  speed: 4,
+  dx: 4,
+  dy: 4
 };
 
-// Paddles
+// Paddle settings
 let paddleWidth = 100;
 let paddleHeight = 12;
-let speed = 6;
+let moveSpeed = 7;
 
-let player1 = {
+let playerBottom = {
   x: canvas.width / 2 - paddleWidth / 2,
   y: canvas.height - 30,
   width: paddleWidth,
   height: paddleHeight
 };
 
-let player2 = {
+let playerTop = {
   x: canvas.width / 2 - paddleWidth / 2,
   y: 20,
   width: paddleWidth,
   height: paddleHeight
 };
 
-let score1 = 0;
-let score2 = 0;
+let scoreBottom = 0;
+let scoreTop = 0;
 
-// Keyboard control
+// Keyboard
 let keys = {};
-
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
-// Mobile touch control
+// Multi-touch mobile control
 canvas.addEventListener("touchmove", function(e) {
   e.preventDefault();
   let rect = canvas.getBoundingClientRect();
+
   for (let touch of e.touches) {
     let x = touch.clientX - rect.left;
+    let y = touch.clientY - rect.top;
 
-    if (x < canvas.width / 2) {
-      player1.x = x - player1.width / 2;
+    if (y > canvas.height / 2) {
+      playerBottom.x = x - playerBottom.width / 2;
     } else {
-      player2.x = x - player2.width / 2;
+      playerTop.x = x - playerTop.width / 2;
     }
   }
 });
@@ -107,33 +109,62 @@ function drawBall() {
 function drawScore() {
   ctx.font = "18px Arial";
   ctx.fillStyle = "white";
-  ctx.fillText("Top: " + score2, 10, 25);
-  ctx.fillText("Bottom: " + score1, 10, canvas.height - 10);
+  ctx.fillText("Top: " + scoreTop, 10, 25);
+  ctx.fillText("Bottom: " + scoreBottom, 10, canvas.height - 10);
 }
 
 // Reset ball
 function resetBall() {
   ball.x = canvas.width / 2;
   ball.y = canvas.height / 2;
-  ball.dx = 3 * (Math.random() > 0.5 ? 1 : -1);
-  ball.dy = 3 * (Math.random() > 0.5 ? 1 : -1);
+  ball.speed = 4;
+  let angle = Math.random() * Math.PI / 3 - Math.PI / 6;
+  let direction = Math.random() > 0.5 ? 1 : -1;
+  ball.dx = ball.speed * Math.sin(angle);
+  ball.dy = ball.speed * direction * Math.cos(angle);
+}
+
+// Ball & paddle collision with angle control
+function paddleCollision(paddle, isTop) {
+  let collide = false;
+
+  if (!isTop) {
+    collide = ball.y + ball.radius > paddle.y &&
+              ball.x > paddle.x &&
+              ball.x < paddle.x + paddle.width;
+  } else {
+    collide = ball.y - ball.radius < paddle.y + paddle.height &&
+              ball.x > paddle.x &&
+              ball.x < paddle.x + paddle.width;
+  }
+
+  if (collide) {
+    let hitPoint = (ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2);
+    let angle = hitPoint * (Math.PI / 3); // max 60 degree angle
+
+    ball.speed += 0.3; // slight speed increase
+
+    ball.dx = ball.speed * Math.sin(angle);
+    ball.dy = isTop
+      ? ball.speed * Math.cos(angle)
+      : -ball.speed * Math.cos(angle);
+  }
 }
 
 // Game loop
 function update() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Move Player 1 (A, D)
-  if (keys["a"] || keys["A"]) player1.x -= speed;
-  if (keys["d"] || keys["D"]) player1.x += speed;
+  // Keyboard controls
+  if (keys["a"] || keys["A"]) playerBottom.x -= moveSpeed;
+  if (keys["d"] || keys["D"]) playerBottom.x += moveSpeed;
 
-  // Move Player 2 (Arrow keys)
-  if (keys["ArrowLeft"]) player2.x -= speed;
-  if (keys["ArrowRight"]) player2.x += speed;
+  if (keys["ArrowLeft"]) playerTop.x -= moveSpeed;
+  if (keys["ArrowRight"]) playerTop.x += moveSpeed;
 
-  // Keep paddles inside screen
-  player1.x = Math.max(0, Math.min(canvas.width - player1.width, player1.x));
-  player2.x = Math.max(0, Math.min(canvas.width - player2.width, player2.x));
+  // Keep paddles inside
+  playerBottom.x = Math.max(0, Math.min(canvas.width - playerBottom.width, playerBottom.x));
+  playerTop.x = Math.max(0, Math.min(canvas.width - playerTop.width, playerTop.x));
 
   // Move ball
   ball.x += ball.dx;
@@ -144,43 +175,29 @@ function update() {
     ball.dx *= -1;
   }
 
-  // Bottom paddle collision
-  if (
-    ball.y + ball.radius > player1.y &&
-    ball.x > player1.x &&
-    ball.x < player1.x + player1.width
-  ) {
-    ball.dy *= -1;
-  }
-
-  // Top paddle collision
-  if (
-    ball.y - ball.radius < player2.y + player2.height &&
-    ball.x > player2.x &&
-    ball.x < player2.x + player2.width
-  ) {
-    ball.dy *= -1;
-  }
+  paddleCollision(playerBottom, false);
+  paddleCollision(playerTop, true);
 
   // Score
   if (ball.y > canvas.height) {
-    score2++;
+    scoreTop++;
     resetBall();
   }
 
   if (ball.y < 0) {
-    score1++;
+    scoreBottom++;
     resetBall();
   }
 
   drawBall();
-  drawPaddle(player1);
-  drawPaddle(player2);
+  drawPaddle(playerBottom);
+  drawPaddle(playerTop);
   drawScore();
 
   requestAnimationFrame(update);
 }
 
+resetBall();
 update();
 </script>
 
