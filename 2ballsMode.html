@@ -1,1 +1,191 @@
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
+function resizeCanvas() {
+  canvas.width = window.innerWidth * 0.95;
+  canvas.height = window.innerHeight * 0.75;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+// ---------- BALL SYSTEM ----------
+function createBall() {
+  return {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    radius: 8,
+    speed: 4,
+    dx: 0,
+    dy: 0
+  };
+}
+
+let balls = [createBall(), createBall()];
+
+// Paddle settings
+let paddleWidth = 100;
+let paddleHeight = 12;
+let moveSpeed = 7;
+
+let playerBottom = {
+  x: canvas.width / 2 - paddleWidth / 2,
+  y: canvas.height - 30,
+  width: paddleWidth,
+  height: paddleHeight
+};
+
+let playerTop = {
+  x: canvas.width / 2 - paddleWidth / 2,
+  y: 20,
+  width: paddleWidth,
+  height: paddleHeight
+};
+
+let scoreBottom = 0;
+let scoreTop = 0;
+
+// Keyboard
+let keys = {};
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
+
+// Multi-touch mobile control
+canvas.addEventListener("touchmove", function(e) {
+  e.preventDefault();
+  let rect = canvas.getBoundingClientRect();
+
+  for (let touch of e.touches) {
+    let x = touch.clientX - rect.left;
+    let y = touch.clientY - rect.top;
+
+    if (y > canvas.height / 2) {
+      playerBottom.x = x - playerBottom.width / 2;
+    } else {
+      playerTop.x = x - playerTop.width / 2;
+    }
+  }
+});
+
+// Draw paddle
+function drawPaddle(p) {
+  ctx.fillStyle = "white";
+  ctx.fillRect(p.x, p.y, p.width, p.height);
+}
+
+// Draw ball
+function drawBall(ball) {
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+  ctx.fillStyle = "white";
+  ctx.fill();
+  ctx.closePath();
+}
+
+// Draw score
+function drawScore() {
+  ctx.font = "18px Arial";
+  ctx.fillStyle = "white";
+  ctx.fillText("Top: " + scoreTop, 10, 25);
+  ctx.fillText("Bottom: " + scoreBottom, 10, canvas.height - 10);
+}
+
+// Reset balls
+function resetBall(ball, directionOverride = null) {
+  ball.x = canvas.width / 2;
+  ball.y = canvas.height / 2;
+  ball.speed = 4;
+
+  let angle = Math.random() * Math.PI / 3 - Math.PI / 6;
+  let direction = directionOverride !== null 
+      ? directionOverride 
+      : (Math.random() > 0.5 ? 1 : -1);
+
+  ball.dx = ball.speed * Math.sin(angle);
+  ball.dy = ball.speed * direction * Math.cos(angle);
+}
+
+function resetAllBalls() {
+  resetBall(balls[0], 1);
+  resetBall(balls[1], -1);
+}
+
+// Paddle collision
+function paddleCollision(ball, paddle, isTop) {
+  let collide = false;
+
+  if (!isTop) {
+    collide = ball.y + ball.radius > paddle.y &&
+              ball.x > paddle.x &&
+              ball.x < paddle.x + paddle.width;
+  } else {
+    collide = ball.y - ball.radius < paddle.y + paddle.height &&
+              ball.x > paddle.x &&
+              ball.x < paddle.x + paddle.width;
+  }
+
+  if (collide) {
+    let hitPoint = (ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2);
+    let angle = hitPoint * (Math.PI / 3);
+
+    ball.speed += 0.3;
+
+    ball.dx = ball.speed * Math.sin(angle);
+    ball.dy = isTop
+      ? ball.speed * Math.cos(angle)
+      : -ball.speed * Math.cos(angle);
+  }
+}
+
+// Game loop
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Keyboard controls
+  if (keys["a"] || keys["A"]) playerBottom.x -= moveSpeed;
+  if (keys["d"] || keys["D"]) playerBottom.x += moveSpeed;
+
+  if (keys["ArrowLeft"]) playerTop.x -= moveSpeed;
+  if (keys["ArrowRight"]) playerTop.x += moveSpeed;
+
+  // Keep paddles inside
+  playerBottom.x = Math.max(0, Math.min(canvas.width - playerBottom.width, playerBottom.x));
+  playerTop.x = Math.max(0, Math.min(canvas.width - playerTop.width, playerTop.x));
+
+  // ---- BALL LOOP ----
+  balls.forEach(ball => {
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+
+    // Wall bounce
+    if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) {
+      ball.dx *= -1;
+    }
+
+    paddleCollision(ball, playerBottom, false);
+    paddleCollision(ball, playerTop, true);
+
+    // Score
+    if (ball.y > canvas.height) {
+      scoreTop++;
+      resetBall(ball, -1);
+    }
+
+    if (ball.y < 0) {
+      scoreBottom++;
+      resetBall(ball, 1);
+    }
+
+    drawBall(ball);
+  });
+
+  drawPaddle(playerBottom);
+  drawPaddle(playerTop);
+  drawScore();
+
+  requestAnimationFrame(update);
+}
+
+resetAllBalls();
+update();
+</script>
